@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from ai import answer_question
 import models, schemas
 from database import engine, get_db
+from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,3 +54,10 @@ def ask_question(doc_id: int, request: schemas.QuestionRequest, db: Session = De
         "question": request.question,
         "answer": answer
     }
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # We'll tighten this in production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
