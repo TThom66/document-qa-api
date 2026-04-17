@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Q&A</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 2rem;
+        }
+
+        h1 {
+            margin-bottom: 2rem;
+            font-size: 1.8rem;
+        }
+
+        h2 {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            color: #555;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        textarea {
+            height: 120px;
+            resize: vertical;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .result {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f0f9ff;
+            border-left: 4px solid #2563eb;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .result.error {
+            background: #fef2f2;
+            border-left-color: #dc2626;
+        }
+
+        .doc-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .doc-content {
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .doc-meta {
+            font-size: 0.85rem;
+            color: #999;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Document Q&A</h1>
+
+        <!-- Upload Document -->
+        <div class="card">
+            <h2>Upload Document</h2>
+            <input type="text" id="upload-title" placeholder="Document title">
+            <textarea id="upload-content" placeholder="Paste your document content here..."></textarea>
+            <button onclick="uploadDocument()">Upload Document</button>
+            <div class="result" id="upload-result"></div>
+        </div>
+
+        <!-- View Document -->
+        <div class="card">
+            <h2>View Document</h2>
+            <input type="number" id="view-id" placeholder="Document ID">
+            <button onclick="viewDocument()">View Document</button>
+            <div class="result" id="view-result"></div>
+        </div>
+
+        <!-- Ask a Question -->
+        <div class="card">
+            <h2>Ask a Question</h2>
+            <input type="number" id="ask-id" placeholder="Document ID">
+            <input type="text" id="ask-question" placeholder="What would you like to know?">
+            <button onclick="askQuestion()">Ask</button>
+            <div class="result" id="ask-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:8000';
+
+        function showResult(elementId, content, isError = false) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.className = isError ? 'result error' : 'result';
+            el.innerHTML = content;
+        }
+
+        async function uploadDocument() {
+            const title = document.getElementById('upload-title').value.trim();
+            const content = document.getElementById('upload-content').value.trim();
+
+            if (!title || !content) {
+                showResult('upload-result', 'Please provide both a title and content.', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API}/documents`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+                const data = await response.json();
+                showResult('upload-result', `Document uploaded. ID: <strong>${data.id}</strong> — save this to view or query your document.`);
+            } catch (err) {
+                showResult('upload-result', 'Failed to connect to the server.', true);
+            }
+        }
+
+        async function viewDocument() {
+            const id = document.getElementById('view-id').value;
+
+            if (!id) {
+                showResult('view-result', 'Please enter a document ID.', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API}/documents/${id}`);
+                if (!response.ok) {
+                    showResult('view-result', 'Document not found.', true);
+                    return;
+                }
+                const doc = await response.json();
+                showResult('view-result', `
+                    <div class="doc-title">${doc.title}</div>
+                    <div class="doc-content">${doc.content}</div>
+                    <div class="doc-meta">Uploaded: ${new Date(doc.created_at).toLocaleString()}</div>
+                `);
+            } catch (err) {
+                showResult('view-result', 'Failed to connect to the server.', true);
+            }
+        }
+
+        async function askQuestion() {
+            const id = document.getElementById('ask-id').value;
+            const question = document.getElementById('ask-question').value.trim();
+
+            if (!id || !question) {
+                showResult('ask-result', 'Please provide both a document ID and a question.', true);
+                return;
+            }
+
+            showResult('ask-result', 'Thinking...');
+
+            try {
+                const response = await fetch(`${API}/documents/${id}/ask`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+                const data = await response.json();
+                showResult('ask-result', `<strong>Q:</strong> ${data.question}<br><br><strong>A:</strong> ${data.answer}`);
+            } catch (err) {
+                showResult('ask-result', 'Failed to connect to the server.', true);
+            }
+        }
+    </script>
+</body>
+</html>
