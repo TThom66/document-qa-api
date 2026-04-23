@@ -107,6 +107,12 @@
     <div class="container">
         <h1>Document Q&A</h1>
 
+        <!-- Document List -->
+        <div class="card">
+            <h2>All Documents</h2>
+            <button onclick="listDocuments()">Refresh List</button>
+            <div id="doc-list" style="margin-top: 1rem;"></div>
+        </div>
         <!-- Upload Document -->
         <div class="card">
             <h2>Upload Document</h2>
@@ -142,6 +148,31 @@
             el.style.display = 'block';
             el.className = isError ? 'result error' : 'result';
             el.innerHTML = content;
+        }
+
+        async function listDocuments() {
+            try {
+                const response = await fetch(`${API}/documents`);
+                const docs = await response.json();
+
+                if (docs.length === 0) {
+                    document.getElementById('doc-list').innerHTML = '<p>No documents found.</p>';
+                    return;
+                }
+
+                const html = docs.map(doc => `
+                    <div style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+                        <strong>ID ${doc.id}:</strong> ${doc.title}
+                        <span style="color: #999; font-size: 0.85rem; margin-left: 0.5rem;">
+                            ${new Date(doc.created_at).toLocaleDateString()}
+                        </span>
+                    </div>
+                `).join('');
+
+                document.getElementById('doc-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('doc-list').innerHTML = '<p style="color: red;">Failed to connect to server.</p>';
+            }
         }
 
         async function uploadDocument() {

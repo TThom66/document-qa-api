@@ -39,6 +39,12 @@ def get_document(doc_id: int, db: Session = Depends(get_db)):
     logger.info(f"Document retrieved: id={doc_id}")
     return doc
 
+@app.get("/documents", response_model=list[schemas.DocumentResponse])
+def list_documents(db: Session = Depends(get_db)):
+    docs = db.query(models.Document).all()
+    logger.info(f"Document list requested, returning {len(docs)} documents")
+    return docs
+
 @app.post("/documents/{doc_id}/ask", response_model=schemas.QuestionResponse)
 def ask_question(doc_id: int, request: schemas.QuestionRequest, db: Session = Depends(get_db)):
     doc = db.query(models.Document).filter(models.Document.id == doc_id).first()
