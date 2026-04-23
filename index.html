@@ -177,9 +177,16 @@
             try {
                 const response = await fetch(`${API}/documents/${id}`);
                 if (!response.ok) {
-                    showResult('view-result', 'Document not found.', true);
+                    if (response.status === 404) {
+                        showResult('view-result', 'Document not found.', true);
+                    } else if (response.status === 403) {
+                        showResult('view-result', 'Document cannot be accessed.', true);
+                    } else {
+                        showResult('view-result', 'Server error. Please try again later.', true);
+                    }
                     return;
                 }
+
                 const doc = await response.json();
                 showResult('view-result', `
                     <div class="doc-title">${doc.title}</div>
