@@ -208,6 +208,13 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ question })
                 });
+
+                // Add this check
+                if (!response.ok) {
+                    showResult('ask-result', 'Document not found.', true);
+                    return;
+                }
+
                 const data = await response.json();
                 showResult('ask-result', `<strong>Q:</strong> ${data.question}<br><br><strong>A:</strong> ${data.answer}`);
             } catch (err) {
