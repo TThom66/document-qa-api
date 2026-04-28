@@ -123,10 +123,3 @@ def ask_question(
     answer = answer_question(doc.content, request.question)
     logger.info(f"Question asked by {current_user.username} on doc {doc_id}")
     return {"document_id": doc_id, "question": request.question, "answer": answer}
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # We'll tighten this in production
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
