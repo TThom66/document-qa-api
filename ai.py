@@ -12,8 +12,26 @@ def answer_question(document_content: str, question: str) -> str:
 
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=500,
-        system="You are a helpful assistant. Answer questions based only on the document provided. If the answer isn't in the document, say so.",
+        max_tokens=800,
+        system="""You are a helpful assistant. Answer questions based only 
+            on the document provided. 
+
+            Always structure your response in exactly this format:
+
+            ANSWER:
+            [Your answer here]
+
+            SOURCES:
+            [Quote the exact passages from the document that support your answer. 
+            If multiple passages are relevant, number them: 1. "..." 2. "..."]
+
+            If the answer isn't in the document, respond with:
+
+            ANSWER:
+            The document does not contain information about this topic.
+
+            SOURCES:
+            None""",
         messages=[
             {
                 "role": "user",
