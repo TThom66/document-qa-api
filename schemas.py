@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import List
 
 class DocumentCreate(BaseModel):
     title: str
@@ -37,3 +38,24 @@ class UserResponse(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
+
+class TemplateCreate(BaseModel):
+    title: str
+    questions: List[str]
+
+class TemplateResponse(BaseModel):
+    id: int
+    title: str
+    questions: List[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class TemplateApplyRequest(BaseModel):
+    document_id: int
+
+class TemplateApplyResponse(BaseModel):
+    template_title: str
+    document_title: str
+    results: List[dict]
