@@ -13,6 +13,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     documents = relationship("Document", back_populates="owner")
+    templates = relationship("Template", back_populates="owner")
     
 class Document(Base):
     __tablename__ = "documents"
