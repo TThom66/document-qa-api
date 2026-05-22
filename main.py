@@ -9,6 +9,7 @@ from auth import (
     hash_password, verify_password,
     create_access_token, get_current_user
 )
+import json
 
 logging.basicConfig(
     level=logging.INFO,
@@ -123,3 +124,81 @@ def ask_question(
     answer = answer_question(doc.content, request.question)
     logger.info(f"Question asked by {current_user.username} on doc {doc_id}")
     return {"document_id": doc_id, "question": request.question, "answer": answer}
+
+@app.post("/templates", response_model=schemas.TemplateResponse)
+def create_template(
+    template: schemas.TemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if not template.questions:
+        raise HTTPException(
+            status_code=400, 
+            detail="Template must have at least one question"
+        )
+    db_template = models.Template(
+        title=template.title,
+        questions=json.dumps(template.questions),
+        owner_id=current_user.id
+    )
+    db.add(db_template)
+    db.commit()
+    db.refresh(db_template)
+    logger.info(
+        f"Template created: id={db_template.id} "
+        f"by user={current_user.username}"
+    )
+    # Parse questions back for response
+    db_template.questions = json.loads(db_template.questions)
+    return db_template
+
+@app.get("/templates", response_model=list[schemas.TemplateResponse])
+def list_templates(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    templates = db.query(models.Template).filter(
+        models.Template.owner_id == current_user.id
+    ).all()
+    for t in templates:
+        t.questions = json.loads(t.questions)
+    return templates
+
+@app.post("/templates/{template_id}/apply",
+    response_model=schemas.TemplateApplyResponse)
+def apply_template(
+    template_id: int,
+    request: schemas.TemplateApplyRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    template = db.query(models.Template).filter(
+        models.Template.id == template_id,
+        models.Template.owner_id == current_user.id
+    ).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    doc = db.query(models.Document).filter(
+        models.Document.id == request.document_id,
+        models.Document.owner_id == current_user.id
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    questions = json.loads(template.questions)
+    results = []
+
+    for question in questions:
+        logger.info(
+            f"Applying template question: {question[:50]} "
+            f"to doc {doc.id}"
+        )
+        answer = answer_question(doc.content, question)
+        results.append({"question": question, "answer": answer})
+
+    return {
+        "template_title": template.title,
+        "document_title": doc.title,
+        "results": results
+    }
