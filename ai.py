@@ -1,6 +1,7 @@
+import asyncio
+import anthropic
 import logging
 import os
-import anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -43,3 +44,17 @@ def answer_question(document_content: str, question: str) -> str:
     answer = response.content[0].text
     logger.info("Received response from Claude")
     return answer
+
+async def answer_question_async(
+    document_content: str, 
+    question: str
+) -> dict:
+    logger.info(f"Async question to Claude: {question[:50]}...")
+    loop = asyncio.get_event_loop()
+    answer = await loop.run_in_executor(
+        None, 
+        answer_question, 
+        document_content, 
+        question
+    )
+    return {"question": question, "answer": answer}

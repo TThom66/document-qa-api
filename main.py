@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from ai import answer_question
+from ai import answer_question, answer_question_async
 import models, schemas
 from database import engine, get_db
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +11,7 @@ from auth import (
 )
 import json
 from fastapi.security import OAuth2PasswordRequestForm
+import asyncio
 
 logging.basicConfig(
     level=logging.INFO,
@@ -185,7 +186,7 @@ def list_templates(
 
 @app.post("/templates/{template_id}/apply",
     response_model=schemas.TemplateApplyResponse)
-def apply_template(
+async def apply_template(
     template_id: int,
     request: schemas.TemplateApplyRequest,
     db: Session = Depends(get_db),
@@ -196,28 +197,36 @@ def apply_template(
         models.Template.owner_id == current_user.id
     ).first()
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        raise HTTPException(
+            status_code=404, 
+            detail="Template not found"
+        )
 
     doc = db.query(models.Document).filter(
         models.Document.id == request.document_id,
         models.Document.owner_id == current_user.id
     ).first()
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(
+            status_code=404, 
+            detail="Document not found"
+        )
 
     questions = json.loads(template.questions)
-    results = []
 
-    for question in questions:
-        logger.info(
-            f"Applying template question: {question[:50]} "
-            f"to doc {doc.id}"
-        )
-        answer = answer_question(doc.content, question)
-        results.append({"question": question, "answer": answer})
+    logger.info(
+        f"Applying {len(questions)} questions in parallel "
+        f"to doc {doc.id}"
+    )
+
+    tasks = [
+        answer_question_async(doc.content, question)
+        for question in questions
+    ]
+    results = await asyncio.gather(*tasks)
 
     return {
         "template_title": template.title,
         "document_title": doc.title,
-        "results": results
+        "results": list(results)
     }
