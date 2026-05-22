@@ -224,6 +224,44 @@
                 <button onclick="askQuestion()">Ask</button>
                 <div class="result" id="ask-result"></div>
             </div>
+
+            <!-- Templates -->
+            <div class="card">
+                <h2>Question Templates</h2>
+                <button onclick="showTemplateForm()">New Template</button>
+                <button class="secondary" onclick="listTemplates()">
+                    Refresh List
+                </button>
+
+                <div id="template-form" style="display:none; margin-top:1rem;">
+                    <input type="text" id="template-title" 
+                        placeholder="Template name (e.g. Resume Review)">
+                    <div id="questions-list">
+                        <input type="text" class="template-question" 
+                            placeholder="Question 1">
+                    </div>
+                    <button class="secondary" onclick="addQuestion()">
+                        + Add Question
+                    </button>
+                    <button onclick="saveTemplate()" style="margin-left:0.5rem;">
+                        Save Template
+                    </button>
+                    <div class="result" id="template-save-result"></div>
+                </div>
+
+                <div id="template-list" style="margin-top:1rem;"></div>
+            </div>
+
+            <!-- Apply Template -->
+            <div class="card">
+                <h2>Apply Template to Document</h2>
+                <input type="number" id="apply-template-id" 
+                    placeholder="Template ID">
+                <input type="number" id="apply-doc-id" 
+                    placeholder="Document ID">
+                <button onclick="applyTemplate()">Apply Template</button>
+                <div class="result" id="apply-result"></div>
+            </div>
         </div>
     </div>
 
@@ -513,6 +551,158 @@
             }
 
             return html;
+        }
+
+        function showTemplateForm() {
+            const form = document.getElementById('template-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addQuestion() {
+            const list = document.getElementById('questions-list');
+            const count = list.querySelectorAll('.template-question').length + 1;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'template-question';
+            input.placeholder = `Question ${count}`;
+            list.appendChild(input);
+        }
+
+        async function saveTemplate() {
+            const title = document.getElementById('template-title').value.trim();
+            const questionInputs = document.querySelectorAll('.template-question');
+            const questions = Array.from(questionInputs)
+                .map(i => i.value.trim())
+                .filter(q => q.length > 0);
+
+            if (!title) {
+                showResult('template-save-result', 
+                    'Please provide a template title.', true);
+                return;
+            }
+
+            if (questions.length === 0) {
+                showResult('template-save-result', 
+                    'Please add at least one question.', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API}/templates`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ title, questions })
+                });
+                
+                if (!response.ok) {
+                    showResult('template-save-result', 
+                        'Failed to save template.', true);
+                    return;
+                }
+
+                const data = await response.json();
+                showResult('template-save-result', 
+                    `Template saved. ID: <strong>${data.id}</strong>`);
+                listTemplates();
+            } catch (err) {
+                showResult('template-save-result', 
+                    'Failed to connect to server.', true);
+            }
+        }
+
+        async function listTemplates() {
+            try {
+                const response = await fetch(`${API}/templates`, {
+                    headers: authHeaders()
+                });
+                const templates = await response.json();
+
+                if (templates.length === 0) {
+                    document.getElementById('template-list').innerHTML = 
+                        '<p style="color:#999;">No templates yet.</p>';
+                    return;
+                }
+
+                const html = templates.map(t => `
+                    <div class="doc-list-item" 
+                        onclick="selectTemplate(${t.id})">
+                        <div>
+                            <strong>ID ${t.id}:</strong> ${t.title}
+                            <span style="color:#999; font-size:0.85rem;">
+                                (${t.questions.length} questions)
+                            </span>
+                        </div>
+                        <span style="color:#999; font-size:0.85rem;">
+                            ${new Date(t.created_at).toLocaleDateString()}
+                        </span>
+                    </div>
+                `).join('');
+
+                document.getElementById('template-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('template-list').innerHTML = 
+                    '<p style="color:red;">Failed to load templates.</p>';
+            }
+        }
+
+        function selectTemplate(id) {
+            document.getElementById('apply-template-id').value = id;
+        }
+
+        async function applyTemplate() {
+            const templateId = document.getElementById('apply-template-id').value;
+            const docId = document.getElementById('apply-doc-id').value;
+
+            if (!templateId || !docId) {
+                showResult('apply-result', 
+                    'Please provide both a template ID and document ID.', true);
+                return;
+            }
+
+            showResult('apply-result', 'Running template...');
+
+            try {
+                const response = await fetch(
+                    `${API}/templates/${templateId}/apply`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ document_id: parseInt(docId) })
+                });
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        showResult('apply-result', 
+                            'Template or document not found.', true);
+                    } else {
+                        showResult('apply-result', 
+                            'Server error. Please try again later.', true);
+                    }
+                    return;
+                }
+
+                const data = await response.json();
+                const resultsHtml = data.results.map(r => {
+                    const formatted = formatAnswer(r.answer);
+                    return `
+                        <div style="
+                            padding: 1rem 0; 
+                            border-bottom: 1px solid #eee;
+                        ">
+                            ${formatted}
+                        </div>
+                    `;
+                }).join('');
+
+                showResult('apply-result', `
+                    <strong>${data.template_title}</strong> applied to 
+                    <strong>${data.document_title}</strong>
+                    <br><br>
+                    ${resultsHtml}
+                `);
+            } catch (err) {
+                showResult('apply-result', 
+                    'Failed to connect to server.', true);
+            }
         }
     </script>
 </body>
