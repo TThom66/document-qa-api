@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database import Base, get_db
 from main import app
+from unittest.mock import patch
 
 # Use a separate test database
 TEST_DATABASE_URL = "sqlite:///./test.db"
@@ -167,3 +168,34 @@ def test_list_documents_only_returns_own():
     docs = response.json()
     assert len(docs) == 1
     assert docs[0]["title"] == "User1 Doc"
+
+def test_ask_question_returns_answer():
+    token = register_and_login()
+    
+    # Create a document first
+    create_response = client.post("/documents",
+        json={
+            "title": "Test Doc", 
+            "content": "The sky is blue."
+        },
+        headers=auth_headers(token)
+    )
+    doc_id = create_response.json()["id"]
+
+    # Mock the Anthropic API call so we don't spend tokens
+    with patch("ai.client.messages.create") as mock_create:
+        mock_create.return_value.content = [
+            type("Block", (), {
+                "text": "ANSWER:\nThe sky is blue.\n\nSOURCES:\n\"The sky is blue.\""
+            })()
+        ]
+
+        response = client.post(f"/documents/{doc_id}/ask",
+            json={"question": "What color is the sky?"},
+            headers=auth_headers(token)
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["question"] == "What color is the sky?"
+    assert "answer" in data
