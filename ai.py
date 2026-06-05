@@ -57,7 +57,6 @@ async def answer_question_async(
     document_content: str, 
     question: str
 ) -> dict:
-    logger.info(f"Async question to Claude: {question[:50]}...")
     loop = asyncio.get_event_loop()
     answer = await loop.run_in_executor(
         None, 
