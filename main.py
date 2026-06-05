@@ -35,6 +35,15 @@ def health_check():
     logger.info("Health check called")
     return {"status": "ok"}
 
+# --- Root (Default) endpoint
+@app.get("/")
+def root():
+    return {
+        "name": "Document Q&A API",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 # --- Auth endpoints ---
 
 @app.post("/auth/register", response_model=schemas.UserResponse)
