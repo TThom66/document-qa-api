@@ -199,3 +199,21 @@ def test_ask_question_returns_answer():
     data = response.json()
     assert data["question"] == "What color is the sky?"
     assert "answer" in data
+
+# Test if a document is too big for the server to handle
+def test_document_content_too_long_rejected():
+    token = register_and_login()
+    long_content = "x" * 50001  # one over the limit
+    response = client.post("/documents",
+        json={"title": "Too Long", "content": long_content},
+        headers=auth_headers(token)
+    )
+    assert response.status_code == 422
+
+# Test if a password is too short to be secure
+def test_short_password_rejected():
+    response = client.post("/auth/register", json={
+        "username": "shortpassuser",
+        "password": "short"
+    })
+    assert response.status_code == 422
